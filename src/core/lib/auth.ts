@@ -1,4 +1,4 @@
-import NextAuth, { NextAuthOptions, User } from "next-auth"
+import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare } from "bcryptjs"
@@ -17,37 +17,24 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // ✅ Validation
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email and password are required")
         }
 
-        // ✅ Find user
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         })
 
-        // ✅ Check if user exists
-        if (!user) {
-          throw new Error("No user found with this email")
+        if (!user || !user.password) {
+          throw new Error("Invalid credentials")
         }
 
-        // ✅ Check if user has password (not Google user)
-        if (!user.password) {
-          throw new Error("Please use Google Sign In for this account")
-        }
-
-        // ✅ Verify password
         const isValid = await compare(credentials.password, user.password)
-        if (!isValid) {
-          throw new Error("Invalid password")
-        }
+        if (!isValid) throw new Error("Invalid password")
 
-        // ✅ Return user object (id is already string UUID)
         return {
           id: user.id,
           email: user.email,
-          name: user.username || user.email.split('@')[0],
           username: user.username,
           role: user.role,
           isVerified: user.isVerified,
@@ -55,86 +42,89 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-
-  secret: process.env.NEXTAUTH_SECRET,
-  
-  session: {
-    strategy: "jwt",
-    maxAge: 7 * 24 * 60 * 60, // 7 days
-  },
-
   callbacks: {
+    // ADDED: Logic to handle Google User creation and auto-verification
     async signIn({ user, account }) {
-      try {
-        if (!user.email) return false
+      if (account?.provider === "google") {
+        try {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email! },
+          });
 
-        // ✅ Check if user exists
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        })
+          if (!existingUser) {
+            // Sanitize Google display name — remove spaces/special chars, ensure uniqueness
+            const baseUsername = (user.name ?? user.email!.split("@")[0])
+              .replace(/[^a-zA-Z0-9_]/g, "")
+              .slice(0, 25) || "user";
+            const suffix = Math.random().toString(36).slice(2, 7);
+            const username = `${baseUsername}_${suffix}`;
 
-        // ✅ Create new user if doesn't exist (Google sign-in)
-        if (!existingUser && account?.provider === "google") {
-          await prisma.user.create({
-            data: {
-              email: user.email,
-              username: user.name || user.email.split('@')[0],
-              password: undefined, // ✅ Use undefined, not null
-              role: "CLIENT",
-              isVerified: true, // ✅ Auto-verify Google users
-            },
-          })
+            const newUser = await prisma.user.create({
+              data: {
+                email: user.email!,
+                username,
+                role: "USER",
+                isVerified: true,
+              },
+            });
+            // Attach data to the user object for the JWT callback
+            user.id = newUser.id;
+            user.role = newUser.role;
+            user.isVerified = newUser.isVerified;
+          } else {
+            // Ensure existing user data is passed to token
+            user.id = existingUser.id;
+            user.role = existingUser.role;
+            user.isVerified = existingUser.isVerified;
+          }
+        } catch (error) {
+          console.error("Error during Google sign in:", error);
+          return false;
         }
-
-        return true
-      } catch (error) {
-        console.error("Sign in error:", error)
-        return false
       }
+      return true;
     },
 
     async jwt({ token, user, trigger }) {
-      // ✅ On sign in, add user data to token
+      // Initial Login (Captures Google info or Credentials info)
       if (user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        })
-
-        if (dbUser) {
-          token.userId = dbUser.id          // ✅ Changed from token.id
-          token.username = dbUser.username
-          token.role = dbUser.role
-          token.isVerified = dbUser.isVerified
-        }
+        token.id = user.id;
+        token.userId = user.id;
+        token.role = user.role as string;
+        token.isVerified = user.isVerified as boolean;
+        token.username = (user.username as string) || (user.name as string) || null;
       }
 
-      return token
+      if (trigger === "update") {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+        });
+        if (dbUser) {
+          token.isVerified = dbUser.isVerified;
+          token.role = dbUser.role;
+          token.username = dbUser.username;
+        }
+      }
+      return token;
     },
 
     async session({ session, token }) {
-      // ✅ Add token data to session
-      if (session.user && token.userId) {
-        // Fetch latest user data
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.userId as string },
-        })
-
-        if (dbUser) {
-          session.user.id = dbUser.id
-          session.user.userId = dbUser.id
-          session.user.username = dbUser.username
-          session.user.role = dbUser.role
-          session.user.isVerified = dbUser.isVerified
-          session.user.email = dbUser.email
-        }
+      if (session.user && token) {
+        session.user.id = token.id as string;
+        session.user.userId = token.userId as string;
+        session.user.username = token.username as string | null;
+        session.user.role = token.role as string;
+        session.user.isVerified = token.isVerified as boolean;
+        session.isVerified = token.isVerified as boolean;
       }
-
-      return session
+      return session;
     },
   },
-
   pages: {
     signIn: "/auth/login",
-    error: "/auth/error",
   },
+  session: { strategy: "jwt" },
+  secret: process.env.NEXTAUTH_SECRET,
 }
+
+export default NextAuth(authOptions);

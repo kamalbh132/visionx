@@ -37,15 +37,31 @@ const router = useRouter();
       redirect: false,
     });
 
-    setLoading(false);
-
     if (res?.error) {
       toast.error("Invalid email or password");
+      setLoading(false);
       return;
     }
 
+    // ✅ Get the session we just created to check verification status
+    const currentSession = await fetch("/api/auth/session").then(r => r.json());
+
+    setLoading(false);
     toast.success("Login successful!");
-    router.push("/admin");
+
+    if (currentSession?.user?.isVerified) {
+      const role = currentSession?.user?.role;
+
+if (role === "SUPERADMIN") {
+  router.push("/superadmin/dashboard");
+} else if (role === "ADMIN") {
+  router.push("/admin/dashboard");
+} else {
+  router.push("/user/dashboard");
+}
+    } else {
+      router.push("/verification");
+    }
   };
 
   return {form, onSubmit,loading, showPassword, setShowPassword};

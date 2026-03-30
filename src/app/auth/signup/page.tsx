@@ -1,7 +1,5 @@
 import Signup from '@/features/auth/signup/components/Signup'
 import React from 'react'
-
-
 const page = () => {
   return (
     <div>
@@ -9,5 +7,4 @@ const page = () => {
     </div>
   )
 }
-
 export default page

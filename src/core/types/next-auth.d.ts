@@ -10,6 +10,7 @@ declare module "next-auth" {
       role: string
       isVerified: boolean
     } & DefaultSession["user"]
+    isVerified: boolean
   }
 
   interface User extends DefaultUser {
