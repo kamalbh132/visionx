@@ -116,6 +116,7 @@ export async function POST(req: Request) {
         userIds: [normalizedAssignedToId],
         title: "New task assigned",
         message: `You have been assigned to task "${task.title}".`,
+        link: "/projects",
         actorId: user.id,
       });
     }

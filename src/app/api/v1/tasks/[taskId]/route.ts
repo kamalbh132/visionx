@@ -120,6 +120,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
         userIds: superAdmins.map((u) => u.id),
         title: "Task status updated",
         message: `Task "${task.title}" moved to ${status.replace(/_/g, " ")}.`,
+        link: "/projects",
         actorId: user.id,
       });
     }

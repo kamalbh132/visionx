@@ -33,8 +33,8 @@ export function SettingsPage({ initialProfile }: { initialProfile: UserProfile }
 
   // Profile form
   const [username, setUsername]     = useState(initialProfile.username);
-  const [bio, setBio]               = useState(initialProfile.bio ?? "");
-  const [avatarColor, setAvatarColor] = useState(initialProfile.avatarColor ?? AVATAR_COLORS[0]);
+  const [bio, setBio]               = useState((initialProfile as any).bio ?? "");
+  const [avatarColor, setAvatarColor] = useState((initialProfile as any).avatarColor ?? AVATAR_COLORS[0]);
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Password form

@@ -4,14 +4,12 @@ type NotificationInput = {
   userIds: string[]
   title: string
   message?: string
+  link?: string
   actorId?: string
 }
 
 export async function createNotifications({
-  userIds,
-  title,
-  message,
-  actorId,
+  userIds, title, message, link, actorId,
 }: NotificationInput) {
   const uniqueIds = Array.from(
     new Set(userIds.filter((id) => id && id !== actorId))
@@ -20,9 +18,7 @@ export async function createNotifications({
 
   await prisma.notification.createMany({
     data: uniqueIds.map((userId) => ({
-      userId,
-      title,
-      message,
+      userId, title, message, link,
     })),
   })
 }

@@ -19,25 +19,16 @@ type RouteItem = {
 };
 
 const ALL_ROUTES: RouteItem[] = [
-  { label: "Dashboard",        icon: LayoutDashboard,   href: "__dashboard__",      roles: ["USER", "ADMIN", "SUPERADMIN"] },
+  { label: "Dashboard",        icon: LayoutDashboard,   href: "/dashboard",         roles: ["USER", "ADMIN", "SUPERADMIN"] },
   { label: "Projects",         icon: Briefcase,         href: "/projects",          roles: ["USER", "ADMIN", "SUPERADMIN"] },
   { label: "Admin Management", icon: Users,             href: "/superadmin/admins", roles: ["SUPERADMIN"] },
   { label: "User Management",  icon: Users,             href: "__usermgmt__",       roles: ["ADMIN", "SUPERADMIN"] },
   { label: "Messages",         icon: MessageSquareText, href: "/messages",          roles: ["USER", "ADMIN", "SUPERADMIN"] },
-  { label: "Notifications",    icon: BellRing,          href: "__notifications__",  roles: ["USER", "ADMIN", "SUPERADMIN"] },
-  { label: "Settings",         icon: Settings,          href: "__settings__",       roles: ["USER", "ADMIN", "SUPERADMIN"] },
+  { label: "Notifications",    icon: BellRing,          href: "/notifications",     roles: ["USER", "ADMIN", "SUPERADMIN"] },
+  { label: "Settings",         icon: Settings,          href: "/settings",          roles: ["USER", "ADMIN", "SUPERADMIN"] },
 ];
 
 function resolveHref(href: string, role: string): string {
-  if (href === "__dashboard__") {
-    return role === "SUPERADMIN" ? "/superadmin/dashboard" : role === "ADMIN" ? "/admin/dashboard" : "/user/dashboard";
-  }
-  if (href === "__notifications__") {
-    return role === "SUPERADMIN" ? "/superadmin/notifications" : role === "ADMIN" ? "/admin/notifications" : "/user/notifications";
-  }
-  if (href === "__settings__") {
-    return role === "SUPERADMIN" ? "/superadmin/settings" : role === "ADMIN" ? "/admin/settings" : "/user/settings";
-  }
   if (href === "__usermgmt__") {
     return role === "SUPERADMIN" ? "/superadmin/users" : "/admin/users";
   }
