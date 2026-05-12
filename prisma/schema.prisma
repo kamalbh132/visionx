@@ -1,3 +1,8 @@
+// ============================================================
+// PATH: prisma/schema.prisma
+// REPLACE: entire file
+// ============================================================
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -8,9 +13,29 @@ datasource db {
 }
 
 enum Role {
+  SUPERADMIN
   ADMIN
-  STAFF
-  CLIENT
+  USER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW_SUPERADMIN
+  REVIEW_USER
+  COMPLETED
 }
 
 model User {
@@ -18,49 +43,212 @@ model User {
   username      String    @unique
   email         String    @unique
   password      String?
-  role          Role      @default(CLIENT)
-  image         String?
-  isVerified Boolean      @default(false)
+  role          Role      @default(USER)
+  isVerified    Boolean   @default(false)
+  bio           String?
+  avatarColor   String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  projects      Project[]
+  projectMemberships ProjectMember[]
+  assignedTasks Task[]    @relation("AssignedTasks")
+  createdTasks  Task[]    @relation("CreatedTasks")
+  taskReviews   TaskReview[]         @relation("TaskReviewAuthor")
+  notifications Notification[]
 
-  // 🔹 Explicit relation names
-  accounts Account[] @relation("UserAccounts")
-  sessions Session[] @relation("UserSessions")
+  sentMessages  Message[]            @relation("SentMessages")
+  conversations ConversationMember[]
+  groupsCreated Conversation[]       @relation("GroupCreator")
+  uploadedFiles SharedFile[]         @relation("UploadedFiles")
+  fileReactions FileReaction[]       @relation("FileReactions")
+  fileComments  FileComment[]        @relation("FileComments")
 }
 
-model Account {
-  id                String  @id @default(uuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation("UserAccounts", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
+model Project {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus   @default(ACTIVE)
+  dueDate     DateTime?
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  tasks       Task[]
+  members     ProjectMember[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
-model Session {
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  joinedAt  DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Task {
   id           String   @id @default(uuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation("UserSessions", fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  isCompleted  Boolean  @default(false)
+  priority     Priority @default(MEDIUM)
+  status       TaskStatus @default(TODO)
+  deadline     DateTime?
+  isCritical   Boolean  @default(false)
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById  String
+  createdBy    User     @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  assignedToId String?
+  assignedTo   User?    @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  reviews      TaskReview[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+model TaskReview {
+  id         String   @id @default(uuid())
+  taskId     String
+  reviewerId String
+  comment    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer   User     @relation("TaskReviewAuthor", fields: [reviewerId], references: [id], onDelete: Cascade)
+}
 
-  @@unique([identifier, token])
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String?
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+enum SharedFileType {
+  PDF
+  DOC
+  PPTX
+  IMAGE
+  VIDEO
+  DRIVE_LINK
+  OTHER
+}
+
+model SharedFile {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  type        SharedFileType
+  fileUrl     String
+  fileSize    Int?
+  mimeType    String?
+  uploadedById String
+  uploadedBy  User           @relation("UploadedFiles", fields: [uploadedById], references: [id], onDelete: Cascade)
+  reactions   FileReaction[]
+  comments    FileComment[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model FileReaction {
+  id       String     @id @default(uuid())
+  fileId   String
+  userId   String
+  emoji    String
+  file     SharedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user     User       @relation("FileReactions", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([fileId, userId, emoji])
+}
+
+model FileComment {
+  id        String     @id @default(uuid())
+  fileId    String
+  userId    String
+  content   String
+  file      SharedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user      User       @relation("FileComments", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+model Conversation {
+  id          String           @id @default(uuid())
+  type        ConversationType @default(DIRECT)
+  name        String?
+  description String?
+  createdById String
+  createdBy   User             @relation("GroupCreator", fields: [createdById], references: [id])
+  members     ConversationMember[]
+  messages    Message[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  isAdmin        Boolean      @default(false)
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  PDF
+  FILE
+  VOICE
+  SYSTEM
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String
+  senderId       String
+  type           MessageType @default(TEXT)
+  content        String?
+  fileUrl        String?
+  fileName       String?
+  fileSize       Int?
+  mimeType       String?
+  replyToId      String?
+  replyTo        Message?    @relation("Replies", fields: [replyToId], references: [id])
+  replies        Message[]   @relation("Replies")
+  isEdited       Boolean     @default(false)
+  isDeleted      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User        @relation("SentMessages", fields: [senderId], references: [id])
 }
