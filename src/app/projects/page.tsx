@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/core/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/core/lib/prisma";
+import { Suspense } from "react";
 import { ProjectsKanbanPage } from "@/features/projects/components/ProjectsKanbanPage";
 
 export const metadata = { title: "Projects — VisionX" };
@@ -42,12 +43,14 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <ProjectsKanbanPage
-        projects={projects as any}
-        myRole={role}
-        myId={userId}
-        initialProjectId={initialProjectId}
-      />
+      <Suspense>
+        <ProjectsKanbanPage
+          projects={projects as any}
+          myRole={role}
+          myId={userId}
+          initialProjectId={initialProjectId}
+        />
+      </Suspense>
     </div>
   );
 }

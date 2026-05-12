@@ -111,12 +111,37 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
 
           {/* Member assignment */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Assign Members
-              {memberIds.length > 0 && (
-                <span className="ml-2 normal-case font-normal text-violet-600">({memberIds.length} selected)</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Assign Members
+                {memberIds.length > 0 && (
+                  <span className="ml-2 normal-case font-normal text-violet-600">({memberIds.length} selected)</span>
+                )}
+              </label>
+              {filteredUsers.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMemberIds(filteredUsers.map((u) => u.id))}
+                    className="text-[10px] font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                  >
+                    Select all
+                  </button>
+                  {memberIds.length > 0 && (
+                    <>
+                      <span className="text-slate-300 text-[10px]">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setMemberIds([])}
+                        className="text-[10px] font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
-            </label>
+            </div>
             <input
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}

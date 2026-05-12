@@ -73,20 +73,47 @@ function SidebarSkeleton({ collapsed }: { collapsed: boolean }) {
 }
 
 // ── Projects collapsible nav item ─────────────────────────
-function ProjectsNavItem({ route, isActive, isSuperAdmin }: {
-  route: RouteItem; isActive: boolean; isSuperAdmin: boolean;
+// Uses a custom event so ProjectsKanbanPage can notify the sidebar when a project is created
+const PROJECT_CREATED_EVENT = "visionx:project-created";
+
+export function notifySidebarProjectCreated(project: { id: string; name: string; dueDate?: string | null; tasks: { status: string }[] }) {
+  window.dispatchEvent(new CustomEvent(PROJECT_CREATED_EVENT, { detail: project }));
+}
+
+function ProjectsNavItem({ route, isActive }: {
+  route: RouteItem; isActive: boolean;
 }) {
   const [open, setOpen]         = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
   const router = useRouter();
 
-  useEffect(() => {
+  const loadProjects = () => {
     fetch("/api/v1/projects")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => { setProjects(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
+  };
+
+  useEffect(() => { loadProjects(); }, []);
+
+  // Listen for new project created from the board
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const project = (e as CustomEvent).detail;
+      setProjects((prev) => {
+        if (prev.find((p) => p.id === project.id)) return prev;
+        return [project, ...prev];
+      });
+    };
+    window.addEventListener(PROJECT_CREATED_EVENT, handler);
+    return () => window.removeEventListener(PROJECT_CREATED_EVENT, handler);
   }, []);
+
+  const filtered = search
+    ? projects.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+    : projects;
 
   return (
     <div>
@@ -107,7 +134,21 @@ function ProjectsNavItem({ route, isActive, isSuperAdmin }: {
       {/* Sub-section with vertical border */}
       {open && (
         <div className="ml-3 mt-1 pl-3 border-l-2 border-slate-100">
-          {/* Simple project name list — search & add are in the board header */}
+          {/* Search */}
+          <div className="relative mb-1.5">
+            <svg className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search projects…"
+              className="w-full pl-6 pr-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-400 focus:border-violet-400 transition-all"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-[10px]">✕</button>
+            )}
+          </div>
+
+          {/* Project list */}
           <div className="space-y-0.5">
             {loading && Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="flex items-center gap-2 px-2 py-1.5 animate-pulse">
@@ -116,11 +157,13 @@ function ProjectsNavItem({ route, isActive, isSuperAdmin }: {
               </div>
             ))}
 
-            {!loading && projects.length === 0 && (
-              <p className="text-[11px] text-slate-400 px-2 py-2 text-center">No projects yet</p>
+            {!loading && filtered.length === 0 && (
+              <p className="text-[11px] text-slate-400 px-2 py-2 text-center">
+                {search ? `No results for "${search}"` : "No projects yet"}
+              </p>
             )}
 
-            {!loading && projects.slice(0, 12).map((p) => {
+            {!loading && filtered.slice(0, 12).map((p) => {
               const overdue = p.dueDate && new Date(p.dueDate) < new Date();
               return (
                 <button
@@ -192,7 +235,6 @@ export default function Sidebar() {
                   key={route.href}
                   route={route}
                   isActive={isActive}
-                  isSuperAdmin={role === "SUPERADMIN"}
                 />
               );
             }

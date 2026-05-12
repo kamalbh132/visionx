@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo, useEffect, memo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Plus, AlertTriangle, CalendarDays, User, MoreHorizontal, Loader2,
   FolderOpen, ChevronRight, Search, Settings, X,
@@ -12,6 +13,13 @@ import { CreateProjectModal } from "./CreateProjectModal";
 import { EditProjectModal } from "./EditProjectModal";
 import { TaskDetailPanel } from "./TaskDetailPanel";
 import { ProjectDetailPanel } from "./ProjectDetailPanel";
+
+// Notify sidebar when a project is created
+function notifySidebar(project: any) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("visionx:project-created", { detail: project }));
+  }
+}
 
 interface TaskUser { id: string; username: string }
 interface Review { id: string; comment: string; reviewer: TaskUser; createdAt: string }
@@ -303,11 +311,24 @@ export function ProjectsKanbanPage({
   projects: Project[]; myRole: string; myId: string; initialProjectId?: string;
 }) {
   const isSuperAdmin = myRole === "SUPERADMIN";
+  const searchParams = useSearchParams();
 
-  const [projects, setProjects]           = useState<Project[]>(initialProjects);
-  const [activeId, setActiveId]           = useState<string | null>(
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [activeId, setActiveId] = useState<string | null>(
     initialProjectId ?? initialProjects[0]?.id ?? null
   );
+
+  // React to URL ?project= changes (sidebar clicks do client-side nav)
+  useEffect(() => {
+    const urlProjectId = searchParams.get("project");
+    if (urlProjectId) {
+      // If the project exists in our list, switch to it
+      const exists = projects.find((p) => p.id === urlProjectId);
+      if (exists) {
+        setActiveId(urlProjectId);
+      }
+    }
+  }, [searchParams, projects]);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [projModalOpen, setProjModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -424,6 +445,7 @@ export function ProjectsKanbanPage({
     setProjects((prev) => [project, ...prev]);
     setActiveId(project.id);
     setProjModalOpen(false);
+    notifySidebar(project);
     toast.success("Project created");
   }, []);
 
