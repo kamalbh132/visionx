@@ -8,7 +8,6 @@ import {
   Bell, Plus, ShieldCheck,
 } from "lucide-react";
 
-// ── Types ─────────────────────────────────────────────────
 interface Notification { id: string; title: string; message: string | null; isRead: boolean; createdAt: string | Date }
 interface TaskUser { id: string; username: string }
 interface Task {
@@ -40,7 +39,6 @@ type UserData = {
   recentNotifications: Notification[]; unreadCount: number; dueToday: number;
 };
 
-// ── Helpers ───────────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
   TODO:              { label: "To Do",       color: "#3b82f6", bg: "#eff6ff" },
   IN_PROGRESS:       { label: "In Progress", color: "#f59e0b", bg: "#fffbeb" },
@@ -74,7 +72,6 @@ function StatCard({ label, value, sub, color, icon: Icon, accent }: {
   );
 }
 
-// ── Status Badge ──────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CFG[status] ?? { label: status, color: "#64748b", bg: "#f1f5f9" };
   return (
@@ -84,7 +81,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ── Section Header ────────────────────────────────────────
 function SectionHeader({ title, href, badge }: { title: string; href?: string; badge?: number }) {
   return (
     <div className="flex items-center justify-between mb-4">
@@ -104,7 +100,6 @@ function SectionHeader({ title, href, badge }: { title: string; href?: string; b
   );
 }
 
-// ── Task Row ──────────────────────────────────────────────
 function TaskRow({ task }: { task: Task }) {
   const overdue = task.deadline && new Date(task.deadline as string) < new Date() && task.status !== "COMPLETED";
   const daysLeft = task.deadline
@@ -141,7 +136,6 @@ function TaskRow({ task }: { task: Task }) {
   );
 }
 
-// ── Project Bar ───────────────────────────────────────────
 function ProjectBar({ project }: { project: Project }) {
   const done  = project.tasks.filter((t) => t.status === "COMPLETED").length;
   const total = project.tasks.length;
@@ -170,7 +164,7 @@ function ProjectBar({ project }: { project: Project }) {
   );
 }
 
-// ── Notification Item ─────────────────────────────────────
+
 function NotifItem({ n }: { n: Notification }) {
   return (
     <div className="flex items-start gap-2.5 py-2.5 border-b border-slate-50 last:border-0">

@@ -6,7 +6,7 @@ import Sidebar from "./sidebar";
 const NO_SIDEBAR_PATHS = ["/", "/auth/login", "/auth/signup", "/verification"];
 
 // Pages that need full-width (no padding) — the Kanban board
-const FULL_WIDTH_PATHS = ["/dashboard", "/projects", "/messages", "/notifications", "/settings", "/user/notifications", "/admin/notifications", "/superadmin/notifications", "/user/settings", "/admin/settings", "/superadmin/settings"];
+const FULL_WIDTH_PATHS = ["/dashboard", "/projects", "/messages", "/files", "/notifications", "/settings", "/user/notifications", "/admin/notifications", "/superadmin/notifications", "/user/settings", "/admin/settings", "/superadmin/settings"];
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

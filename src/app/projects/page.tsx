@@ -6,14 +6,14 @@ import { ProjectsKanbanPage } from "@/features/projects/components/ProjectsKanba
 
 export const metadata = { title: "Projects — VisionX" };
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ project?: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/login");
 
   const userId = session.user.id;
   const role   = session.user.role;
+  const { project: initialProjectId } = await searchParams;
 
-  // SUPERADMIN sees projects they own; others see projects they're a member of
   const where =
     role === "SUPERADMIN"
       ? { userId }
@@ -46,6 +46,7 @@ export default async function ProjectsPage() {
         projects={projects as any}
         myRole={role}
         myId={userId}
+        initialProjectId={initialProjectId}
       />
     </div>
   );

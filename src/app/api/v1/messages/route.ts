@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       data: {
         conversationId,
         senderId: user.id,
-        type: type ?? "TEXT",
+        type: (type ?? "TEXT") as any,
         content: safeContent,
         fileUrl: fileUrl || null,
         fileName: fileName || null,

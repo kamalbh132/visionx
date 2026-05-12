@@ -4,20 +4,23 @@ import { Pool } from 'pg'
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL!,
-  ssl: { rejectUnauthorized: false },
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-})
+if (!globalForPrisma.prisma) {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL!,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+    min: 0,
+    idleTimeoutMillis: 0,
+    connectionTimeoutMillis: 60000,
+    allowExitOnIdle: true,
+  })
 
-const adapter = new PrismaPg(pool)
+  pool.on('error', (err) => {
+    console.error('[PG Pool] error:', err.message)
+  })
 
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({ adapter })
+  const adapter = new PrismaPg(pool)
+  globalForPrisma.prisma = new PrismaClient({ adapter })
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
-export default prisma
+export default globalForPrisma.prisma

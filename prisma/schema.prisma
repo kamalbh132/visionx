@@ -59,6 +59,9 @@ model User {
   sentMessages  Message[]            @relation("SentMessages")
   conversations ConversationMember[]
   groupsCreated Conversation[]       @relation("GroupCreator")
+  uploadedFiles SharedFile[]         @relation("UploadedFiles")
+  fileReactions FileReaction[]       @relation("FileReactions")
+  fileComments  FileComment[]        @relation("FileComments")
 }
 
 model Project {
@@ -128,6 +131,66 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+enum SharedFileType {
+  PDF
+  DOC
+  PPTX
+  IMAGE
+  VIDEO
+  DRIVE_LINK
+  OTHER
+}
+
+model SharedFile {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  type        SharedFileType
+  fileUrl     String
+  fileSize    Int?
+  mimeType    String?
+  uploadedById String
+  uploadedBy  User           @relation("UploadedFiles", fields: [uploadedById], references: [id], onDelete: Cascade)
+  reactions   FileReaction[]
+  comments    FileComment[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model FileReaction {
+  id       String     @id @default(uuid())
+  fileId   String
+  userId   String
+  emoji    String
+  file     SharedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user     User       @relation("FileReactions", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([fileId, userId, emoji])
+}
+
+model FileComment {
+  id        String     @id @default(uuid())
+  fileId    String
+  userId    String
+  content   String
+  file      SharedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user      User       @relation("FileComments", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
 enum ConversationType {
   DIRECT
   GROUP
@@ -165,6 +228,7 @@ enum MessageType {
   VIDEO
   PDF
   FILE
+  VOICE
   SYSTEM
 }
 

@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect, memo } from "react";
 import {
   Plus, AlertTriangle, CalendarDays, User, MoreHorizontal, Loader2,
-  FolderOpen, Briefcase, ChevronRight, Search, Settings, X,
+  FolderOpen, ChevronRight, Search, Settings, X,
   Clock, CheckCircle2, Circle, ArrowRight, ArrowLeft, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { CreateTaskModal } from "./CreateTaskModal";
 import { CreateProjectModal } from "./CreateProjectModal";
 import { EditProjectModal } from "./EditProjectModal";
 import { TaskDetailPanel } from "./TaskDetailPanel";
+import { ProjectDetailPanel } from "./ProjectDetailPanel";
 
 interface TaskUser { id: string; username: string }
 interface Review { id: string; comment: string; reviewer: TaskUser; createdAt: string }
@@ -297,14 +298,16 @@ const KanbanColumn = memo(function KanbanColumn({ col, tasks, myRole, myId, onMo
 
 // ── Main Page ─────────────────────────────────────────────
 export function ProjectsKanbanPage({
-  projects: initialProjects, myRole, myId,
+  projects: initialProjects, myRole, myId, initialProjectId,
 }: {
-  projects: Project[]; myRole: string; myId: string;
+  projects: Project[]; myRole: string; myId: string; initialProjectId?: string;
 }) {
   const isSuperAdmin = myRole === "SUPERADMIN";
 
   const [projects, setProjects]           = useState<Project[]>(initialProjects);
-  const [activeId, setActiveId]           = useState<string | null>(initialProjects[0]?.id ?? null);
+  const [activeId, setActiveId]           = useState<string | null>(
+    initialProjectId ?? initialProjects[0]?.id ?? null
+  );
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [projModalOpen, setProjModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -314,6 +317,7 @@ export function ProjectsKanbanPage({
   const [filterPriority, setFilterPriority] = useState<string>("ALL");
   const [detailTask, setDetailTask]       = useState<Task | null>(null);
   const [showMembers, setShowMembers]     = useState(false);
+  const [showProjectDetail, setShowProjectDetail] = useState(false);
   const dragTask = useRef<{ task: Task; originalStatus: string } | null>(null);
 
   const activeProject = useMemo(() => projects.find((p) => p.id === activeId) ?? null, [projects, activeId]);
@@ -444,232 +448,154 @@ export function ProjectsKanbanPage({
   return (
     <div className="flex h-full overflow-hidden" style={{ background: "#f4f6fb" }}>
 
-      {/* ── Left Sidebar ── */}
-      <aside className="w-64 shrink-0 flex flex-col border-r border-slate-100 bg-white overflow-hidden">
-        <div className="px-4 pt-5 pb-3 shrink-0 border-b border-slate-50">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-violet-600 flex items-center justify-center">
-                <Briefcase size={13} className="text-white" />
-              </div>
-              <span className="text-sm font-bold text-slate-800">Projects</span>
-              <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{projects.length}</span>
+      {/* ── Board only — no left sidebar, projects are in the main sidebar ── */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* ── Top bar: search + project name + actions ── */}
+        <div className="shrink-0 px-6 py-3.5 border-b border-slate-100 bg-white flex items-center justify-between gap-4">
+          {/* Left: search + add */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                placeholder="Search projects…"
+                className="pl-7 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 w-36"
+              />
+              {sidebarSearch && (
+                <button onClick={() => setSidebarSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <X size={10} />
+                </button>
+              )}
             </div>
             {isSuperAdmin && (
               <button
                 onClick={() => setProjModalOpen(true)}
                 className="h-7 w-7 rounded-lg bg-violet-600 hover:bg-violet-700 text-white flex items-center justify-center transition-colors shadow-sm"
-                title="New Project (N)"
+                title="New Project"
               >
                 <Plus size={14} />
               </button>
             )}
           </div>
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={sidebarSearch}
-              onChange={(e) => setSidebarSearch(e.target.value)}
-              placeholder="Search projects…"
-              className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition-all bg-slate-50"
-            />
-          </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-          {filteredProjects.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-              <FolderOpen size={28} className="text-slate-200 mb-2" />
-              <p className="text-xs text-slate-400">
-                {isSuperAdmin ? "No projects yet. Create one!" : "No projects assigned to you."}
-              </p>
-            </div>
-          )}
-          {filteredProjects.map((p) => {
-            const isActive  = p.id === activeId;
-            const done      = p.tasks.filter((t) => t.status === "COMPLETED").length;
-            const total     = p.tasks.length;
-            const pct       = total > 0 ? Math.round((done / total) * 100) : 0;
-            const overdue   = isProjectOverdue(p);
-            return (
-              <div
-                key={p.id}
-                onClick={() => setActiveId(p.id)}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all
-                  ${isActive ? "bg-violet-50 border border-violet-100" : "hover:bg-slate-50 border border-transparent"}`}
+          {/* Center: active project name */}
+          {activeProject ? (
+            <div className="flex-1 flex items-center gap-2 min-w-0 justify-center">
+              <button
+                onClick={() => setShowProjectDetail(true)}
+                className="text-base font-bold text-slate-900 truncate hover:text-violet-700 transition-colors text-left"
               >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0
-                    ${isActive ? "bg-violet-600 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`}>
-                    {p.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                      <p className={`text-xs font-semibold truncate ${isActive ? "text-violet-700" : "text-slate-700"}`}>
-                        {p.name}
-                      </p>
-                      {overdue && <span title="Overdue"><Clock size={10} className="text-red-400 shrink-0" /></span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <div className="flex-1 h-1 rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%`, background: pct === 100 ? "#10b981" : "#8b5cf6" }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-slate-400 shrink-0">{done}/{total}</span>
-                    </div>
-                  </div>
+                {activeProject.name}
+              </button>
+              {isProjectOverdue(activeProject) && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 shrink-0">
+                  Overdue
+                </span>
+              )}
+              {activeProject.dueDate && !isProjectOverdue(activeProject) && (
+                <span className="text-xs text-slate-400 shrink-0 flex items-center gap-1">
+                  <CalendarDays size={11} />
+                  Due {new Date(activeProject.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              )}
+              {activeProject.description && (
+                <span className="text-xs text-slate-400 truncate hidden sm:block">— {activeProject.description}</span>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1" />
+          )}
+
+          {/* Right: board controls */}
+          {activeProject && (
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Progress */}
+              <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100">
+                <div className="w-20 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${progress}%`, background: progress === 100 ? "#10b981" : "linear-gradient(90deg,#8b5cf6,#6366f1)" }} />
                 </div>
-                {isSuperAdmin && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setActiveId(p.id); setEditModalOpen(true); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-slate-200 text-slate-400 transition-all shrink-0 ml-1"
-                    title="Edit project"
-                  >
-                    <Settings size={12} />
+                <span className="text-xs font-bold text-slate-600 tabular-nums">{progress}%</span>
+                <span className="text-xs text-slate-400">{completedTasks}/{totalTasks}</span>
+              </div>
+
+              {/* Member avatars */}
+              <div className="relative">
+                <button onClick={() => setShowMembers((v) => !v)}
+                  className="flex -space-x-1.5 hover:opacity-80 transition-opacity" title="View members">
+                  {activeProject.members.slice(0, 5).map((m) => (
+                    <div key={m.user.id}
+                      className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold">
+                      {m.user.username.charAt(0).toUpperCase()}
+                    </div>
+                  ))}
+                  {activeProject.members.length > 5 && (
+                    <div className="h-7 w-7 rounded-full bg-slate-100 text-slate-500 border-2 border-white flex items-center justify-center text-[9px] font-bold">
+                      +{activeProject.members.length - 5}
+                    </div>
+                  )}
+                </button>
+                {showMembers && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setShowMembers(false)} />
+                    <div className="absolute right-0 top-9 z-30 bg-white rounded-2xl border border-slate-100 shadow-2xl w-56 py-2 overflow-hidden">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-3.5 pb-2 pt-1">
+                        Members ({activeProject.members.length})
+                      </p>
+                      <div className="max-h-64 overflow-y-auto">
+                        {activeProject.members.length === 0
+                          ? <p className="text-xs text-slate-400 px-3.5 py-2">No members assigned</p>
+                          : activeProject.members.map((m) => (
+                            <div key={m.user.id} className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-50">
+                              <div className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {m.user.username.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-800">{m.user.username}</p>
+                                <p className="text-xs text-slate-400 capitalize">{m.user.role.toLowerCase()}</p>
+                              </div>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Filter */}
+              <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/30">
+                <option value="ALL">All priorities</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+
+              {/* Task search */}
+              <div className="relative">
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={boardSearch} onChange={(e) => setBoardSearch(e.target.value)}
+                  placeholder="Filter tasks…"
+                  className="pl-7 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 w-28" />
+                {boardSearch && (
+                  <button onClick={() => setBoardSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <X size={11} />
                   </button>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </aside>
 
-      {/* ── Right: Board ── */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+              <button onClick={() => { setDefaultStatus("TODO"); setTaskModalOpen(true); }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors shadow-sm">
+                <Plus size={13} /> Add Task
+              </button>
+            </div>
+          )}
+        </div>
+
         {activeProject ? (
           <>
-            {/* Board Header */}
-            <div className="shrink-0 px-6 py-3.5 border-b border-slate-100 bg-white flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <ChevronRight size={14} className="text-slate-300 shrink-0" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-base font-bold text-slate-900 truncate">{activeProject.name}</h1>
-                    {isProjectOverdue(activeProject) && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 shrink-0">
-                        Overdue
-                      </span>
-                    )}
-                    {activeProject.dueDate && !isProjectOverdue(activeProject) && (
-                      <span className="text-xs text-slate-400 shrink-0 flex items-center gap-1">
-                        <CalendarDays size={11} />
-                        Due {new Date(activeProject.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </span>
-                    )}
-                  </div>
-                  {activeProject.description && (
-                    <p className="text-xs text-slate-400 truncate mt-0.5">{activeProject.description}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 shrink-0">
-                {/* Progress */}
-                <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100">
-                  <div className="w-20 h-2 rounded-full bg-slate-200 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${progress}%`,
-                        background: progress === 100 ? "#10b981" : "linear-gradient(90deg,#8b5cf6,#6366f1)",
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs font-bold text-slate-600 tabular-nums">{progress}%</span>
-                  <span className="text-xs text-slate-400">{completedTasks}/{totalTasks}</span>
-                </div>
-
-                {/* Member avatars — click to show members list */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowMembers((v) => !v)}
-                    className="flex -space-x-1.5 hover:opacity-80 transition-opacity"
-                    title="View members"
-                  >
-                    {activeProject.members.slice(0, 5).map((m) => (
-                      <div
-                        key={m.user.id}
-                        className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold"
-                      >
-                        {m.user.username.charAt(0).toUpperCase()}
-                      </div>
-                    ))}
-                    {activeProject.members.length > 5 && (
-                      <div className="h-7 w-7 rounded-full bg-slate-100 text-slate-500 border-2 border-white flex items-center justify-center text-[9px] font-bold">
-                        +{activeProject.members.length - 5}
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Members dropdown */}
-                  {showMembers && (
-                    <>
-                      <div className="fixed inset-0 z-20" onClick={() => setShowMembers(false)} />
-                      <div className="absolute right-0 top-9 z-30 bg-white rounded-2xl border border-slate-100 shadow-2xl w-56 py-2 overflow-hidden">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-3.5 pb-2 pt-1">
-                          Members ({activeProject.members.length})
-                        </p>
-                        <div className="max-h-64 overflow-y-auto">
-                          {activeProject.members.length === 0 ? (
-                            <p className="text-xs text-slate-400 px-3.5 py-2">No members assigned</p>
-                          ) : (
-                            activeProject.members.map((m) => (
-                              <div key={m.user.id} className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-50">
-                                <div className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold shrink-0">
-                                  {m.user.username.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-slate-800">{m.user.username}</p>
-                                  <p className="text-xs text-slate-400 capitalize">{m.user.role.toLowerCase()}</p>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Filter */}
-                <select
-                  value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value)}
-                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
-                >
-                  <option value="ALL">All priorities</option>
-                  <option value="HIGH">High</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="LOW">Low</option>
-                </select>
-
-                {/* Board search */}
-                <div className="relative">
-                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={boardSearch}
-                    onChange={(e) => setBoardSearch(e.target.value)}
-                    placeholder="Filter tasks…"
-                    className="pl-7 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 w-32"
-                  />
-                  {boardSearch && (
-                    <button onClick={() => setBoardSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                      <X size={11} />
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => { setDefaultStatus("TODO"); setTaskModalOpen(true); }}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors shadow-sm"
-                >
-                  <Plus size={13} /> Add Task
-                </button>
-              </div>
-            </div>
-
             {/* Kanban Columns */}
             <div style={{ flex: "1 1 0", minHeight: 0, overflow: "hidden", padding: "20px" }}>
               <div style={{ display: "flex", gap: 16, height: "100%", overflowX: "auto", overflowY: "hidden" }}>
@@ -747,6 +673,14 @@ export function ProjectsKanbanPage({
           onClose={() => setDetailTask(null)}
           onMove={handleMove}
           onDelete={handleDeleteTask}
+        />
+      )}
+      {showProjectDetail && activeProject && (
+        <ProjectDetailPanel
+          project={activeProject}
+          myRole={myRole}
+          onClose={() => setShowProjectDetail(false)}
+          onUpdated={handleProjectUpdated}
         />
       )}
     </div>
