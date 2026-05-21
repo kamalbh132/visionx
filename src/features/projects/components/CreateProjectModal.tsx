@@ -103,6 +103,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Due Date</label>
             <input
               type="date"
+              min={new Date().toISOString().split("T")[0]}
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition-all"
@@ -181,6 +182,11 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
                 <p className="text-center text-sm text-slate-400 py-3">No users found</p>
               )}
             </div>
+            {memberIds.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                <span>⚠</span> At least one member must be selected
+              </p>
+            )}
           </div>
 
           {error && (
@@ -193,7 +199,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
             </button>
             <button
               type="submit"
-              disabled={loading || !name.trim()}
+              disabled={loading || !name.trim() || memberIds.length === 0}
               className="flex-1 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
               {loading && <Loader2 size={14} className="animate-spin" />}

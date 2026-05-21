@@ -703,6 +703,7 @@ export function ProjectsKanbanPage({
           myRole={myRole}
           onClose={() => setShowProjectDetail(false)}
           onUpdated={handleProjectUpdated}
+          onDeleted={handleProjectDeleted}
         />
       )}
     </div>
