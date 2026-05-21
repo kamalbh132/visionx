@@ -18,14 +18,14 @@ export const signupSchema = z.object({
 export const createProjectSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long").trim(),
   description: z.string().max(500, "Description too long").optional(),
-  dueDate: z.string().datetime({ offset: true }).optional().nullable(),
+  dueDate: z.string().optional().nullable(),
   memberIds: z.array(z.string().uuid()).optional(),
 });
 
 export const updateProjectSchema = z.object({
   name: z.string().min(1).max(100).trim().optional(),
   description: z.string().max(500).optional().nullable(),
-  dueDate: z.string().datetime({ offset: true }).optional().nullable(),
+  dueDate: z.string().optional().nullable(),
   memberIds: z.array(z.string().uuid()).optional(),
 });
 

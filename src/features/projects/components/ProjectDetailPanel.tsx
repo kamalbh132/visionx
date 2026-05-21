@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, CalendarDays, Users, FileText, Settings, UserMinus, UserPlus, Loader2, CheckCircle2 } from "lucide-react";
+import { X, CalendarDays, Users, FileText, Settings, UserMinus, UserPlus, Loader2, CheckCircle2, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -19,9 +19,10 @@ interface Props {
   myRole: string;
   onClose: () => void;
   onUpdated: (updated: any) => void;
+  onDeleted: (id: string) => void;
 }
 
-export function ProjectDetailPanel({ project, myRole, onClose, onUpdated }: Props) {
+export function ProjectDetailPanel({ project, myRole, onClose, onUpdated, onDeleted }: Props) {
   const isSuperAdmin = myRole === "SUPERADMIN";
   const [tab, setTab]             = useState<"details" | "members">("details");
   const [allUsers, setAllUsers]   = useState<Member[]>([]);
@@ -29,6 +30,8 @@ export function ProjectDetailPanel({ project, myRole, onClose, onUpdated }: Prop
   const [userSearch, setUserSearch] = useState("");
   const [saving, setSaving]       = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting]   = useState(false);
 
   const done  = project.tasks.filter((t) => t.status === "COMPLETED").length;
   const total = project.tasks.length;
@@ -205,6 +208,57 @@ export function ProjectDetailPanel({ project, myRole, onClose, onUpdated }: Prop
                   </button>
                 )}
               </div>
+
+              {/* Delete project — SUPERADMIN only, at the bottom */}
+              {isSuperAdmin && (
+                <div className="pt-2 border-t border-slate-100">
+                  {!confirmDelete ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors"
+                    >
+                      <Trash2 size={14} /> Delete Project
+                    </button>
+                  ) : (
+                    <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle size={14} className="text-red-600 shrink-0" />
+                        <p className="text-sm font-semibold text-red-800">Delete "{project.name}"?</p>
+                      </div>
+                      <p className="text-xs text-red-500 mb-3">This will permanently delete the project and all its tasks. This cannot be undone.</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          className="flex-1 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setDeleting(true);
+                            try {
+                              const res = await fetch(`/api/v1/projects/${project.id}`, { method: "DELETE" });
+                              if (!res.ok) throw new Error("Failed to delete");
+                              toast.success("Project deleted");
+                              onDeleted(project.id);
+                              onClose();
+                            } catch {
+                              toast.error("Failed to delete project");
+                              setDeleting(false);
+                              setConfirmDelete(false);
+                            }
+                          }}
+                          disabled={deleting}
+                          className="flex-1 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {deleting ? <Loader2 size={13} className="animate-spin" /> : null}
+                          {deleting ? "Deleting…" : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

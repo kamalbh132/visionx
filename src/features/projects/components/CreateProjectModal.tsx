@@ -103,6 +103,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Due Date</label>
             <input
               type="date"
+              min={new Date().toISOString().split("T")[0]}
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition-all"
@@ -111,12 +112,37 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
 
           {/* Member assignment */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Assign Members
-              {memberIds.length > 0 && (
-                <span className="ml-2 normal-case font-normal text-violet-600">({memberIds.length} selected)</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Assign Members
+                {memberIds.length > 0 && (
+                  <span className="ml-2 normal-case font-normal text-violet-600">({memberIds.length} selected)</span>
+                )}
+              </label>
+              {filteredUsers.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMemberIds(filteredUsers.map((u) => u.id))}
+                    className="text-[10px] font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                  >
+                    Select all
+                  </button>
+                  {memberIds.length > 0 && (
+                    <>
+                      <span className="text-slate-300 text-[10px]">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setMemberIds([])}
+                        className="text-[10px] font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
-            </label>
+            </div>
             <input
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
@@ -156,6 +182,11 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
                 <p className="text-center text-sm text-slate-400 py-3">No users found</p>
               )}
             </div>
+            {memberIds.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                <span>⚠</span> At least one member must be selected
+              </p>
+            )}
           </div>
 
           {error && (
@@ -168,7 +199,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
             </button>
             <button
               type="submit"
-              disabled={loading || !name.trim()}
+              disabled={loading || !name.trim() || memberIds.length === 0}
               className="flex-1 px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
               {loading && <Loader2 size={14} className="animate-spin" />}

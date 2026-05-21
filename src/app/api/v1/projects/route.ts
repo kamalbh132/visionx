@@ -57,6 +57,15 @@ export async function POST(req: Request) {
 
     const { name, description, dueDate, memberIds } = parsed.data;
 
+    // Validate dueDate if provided
+    let parsedDueDate: Date | null = null;
+    if (dueDate) {
+      parsedDueDate = new Date(dueDate);
+      if (isNaN(parsedDueDate.getTime())) {
+        return NextResponse.json({ error: "Invalid due date" }, { status: 400 });
+      }
+    }
+
     const validatedMemberIds: string[] = [];
     if (Array.isArray(memberIds) && memberIds.length > 0) {
       const users = await prisma.user.findMany({
@@ -70,7 +79,7 @@ export async function POST(req: Request) {
       data: {
         name: name.trim(),
         description: description?.trim() || null,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: parsedDueDate,
         userId: user.id,
         members: {
           create: validatedMemberIds.map((uid) => ({ userId: uid })),
